@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/FBXLoader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fflate@0.7.4/umd/index.min.js"></script>
+    <style>
+        #model {
+            width: 100vw;
+            height: 100vh;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="model"></div>
+    <script>
+        let container = document.getElementById("model");
+        let scene = new THREE.Scene();//创建场景
+        let camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 10, 10000); //创建透视相机
+        camera.position.set(0, 10, 200);
+        camera.zoom = 0.5;
+        let render = new THREE.WebGLRenderer({
+            antialias: true
+        });
+
+        //canvas画布大小
+        render.setSize(container.clientWidth, container.clientHeight);
+
+        //canvas画布背景色
+        render.setClearColor(0xffffff, 0.5);
+
+        //canvas画布添加到div中
+        container.appendChild(render.domElement);
+
+        //灯光
+        let light = new THREE.HemisphereLight(0xffffff, 0xf0f0ff);
+        light.position.set(0, 200, 0);//灯源位置
+        scene.add(light);//将灯光添加到场景中
+        light = new THREE.DirectionalLight(0xffffff);
+        light.position.set(0, 200, 0);
+        light.castShadow = true;//启用阴影
+        light.intensity = 0.5; //光照强度
+        light.shadow.camera.top = 180;//设置阴影相机高度
+        light.shadow.camera.bottom = -100;
+        light.shadow.camera.left = -120;
+        light.shadow.camera.right = 120;
+        scene.add(light);
+
+        //设置缩放大小
+        let controls = new THREE.OrbitControls(camera, render.domElement);
+        controls.enableDamping = true;//启用阻尼惯性
+        controls.dampingFactor = 0.2;
+        controls.rotateSpeed = 1;
+        controls.enablePan = false;
+
+        controls.minDistance = 200; //最大的缩放级别
+        controls.maxDistance = 1000; //最小的缩放级别
+        controls.target.set(0, 50, 0); //将目标设置在模型中心位置
+        controls.update(); //更新控件
+
+
+        //加载模型
+        let fbxLoader = new THREE.FBXLoader();    //创建fbx容器
+        let animationMixer;
+        let clock = new THREE.Clock();
+        fbxLoader.load('./Hip Hop Dancing.fbx', function (object) {
+            object.traverse(child => {
+                if (child.isMesh && child.geometry && child.geometry.computeFaceNormals) {
+                    child.meterial = new THREE.MeshStandardMaterial({
+                        color: child.meterial.color,
+                        metalness: 0.7,
+                        roughness: 0.2,
+                    })
+
+                    child.geometry.computeFaceNormals();
+                    child.geometry.computeVertexNormals();
+                }
+            })
+
+            //调整模型位置居中
+            centerObject(object);
+            scene.add(object);
+
+            //获取动画数据
+            let animations = object.animations;
+            if (animations && animations.length > 0) {
+                //创建动画混合器
+                animationMixer = new THREE.AnimationMixer(object);
+                for (let i = 0; i < animations.length; i++) {
+                    let animation = animations[i];
+                    animationMixer.clipAction(animation).play();
+                }
+            }
+
+
+        })
+
+        function centerObject(obj) {
+            let bbox = new THREE.Box3().setFromObject(obj);
+            let center = bbox.getCenter(new THREE.Vector3());
+            obj.position.sub(center);
+        }
+
+        function renderLight() {
+            camera.updateProjectionMatrix();
+            requestAnimationFrame(renderLight);
+            render.render(scene, camera);
+            controls.update();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            render.render(scene, camera);
+            if (animationMixer) {
+                animationMixer.update(clock.getDelta());
+            }
+        }
+        renderLight()
+        animate();
+
+
+    </script>
+</body>
+
+</html>
